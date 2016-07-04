@@ -5,6 +5,7 @@
   "main": "index.js",
   "dependencies": {
     "catbox-mongodb": "^3.0.0",
+    "hapi": "^13.4.1",
     "hapi-cors-headers": "^1.0.0",
     "hapi-mongodb": "^6.0.0"
   },

@@ -95,7 +95,7 @@ server.route({
   handler: function (request, reply) {
     var db = request.server.plugins['hapi-mongodb'].db;
     db.collection('keyword').find({}).sort([['updateat', -1]]).toArray((err, rs) => {
-      if (err) return console(err);
+      if (err) return console.error(err);
       reply(rs);
     });
   }
@@ -114,7 +114,7 @@ server.route({
 
     var db = request.server.plugins['hapi-mongodb'].db;
     db.collection('clip').find({keywords: keyword}).sort([['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
-      if (err) return console(err);
+      if (err) return console.error(err);
       reply(rs);
     });
   }
@@ -131,7 +131,7 @@ server.route({
 
     var db = request.server.plugins['hapi-mongodb'].db;
     db.collection('clip').find({}).sort([['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
-      if (err) return console(err);
+      if (err) return console.error(err);
       reply(rs);
     });
   }
@@ -154,7 +154,7 @@ server.route({
 
     var db = request.server.plugins['hapi-mongodb'].db;
     db.collection('clip').find(where).sort([['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
-      if (err) return console(err);
+      if (err) return console.error(err);
       reply(rs);
     });
   }
@@ -173,7 +173,7 @@ server.route({
 
     var db = request.server.plugins['hapi-mongodb'].db;
     db.collection('clip').find({}).sort([['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
-      if (err) return console(err);
+      if (err) return console.error(err);
       reply(rs);
     });
   }
@@ -190,7 +190,7 @@ server.route({
 
     var db = request.server.plugins['hapi-mongodb'].db;
     db.collection('clip').find({}).sort([['viewcount', -1], ['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
-      if (err) return console(err);
+      if (err) return console.error(err);
       reply(rs);
     });
   }
@@ -207,7 +207,7 @@ server.route({
 
     var db = request.server.plugins['hapi-mongodb'].db;
     db.collection('clip').find({}).sort([['viewcount', -1], ['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
-      if (err) return console(err);
+      if (err) return console.error(err);
       reply(rs);
     });
   }
@@ -220,7 +220,7 @@ server.route({
     var db = request.server.plugins['hapi-mongodb'].db;
     var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
     db.collection('clip').findOne({_id: new ObjectID(request.params.id)}, (err, rs) => {
-      if (err) return console(err);
+      if (err) return console.error(err);
       rs.viewcount++;
       db.collection('clip').updateOne({_id: rs._id}, { $set: { viewcount : rs.viewcount } }, (err, rs0) => {
         reply(rs);
