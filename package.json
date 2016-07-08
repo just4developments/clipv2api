@@ -4,10 +4,12 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
+    "async": "^2.0.0-rc.6",
     "catbox-mongodb": "^3.0.0",
     "hapi": "^13.4.1",
     "hapi-cors-headers": "^1.0.0",
-    "hapi-mongodb": "^6.0.0"
+    "hapi-mongodb": "^6.0.0",
+    "unirest": "^0.5.0"
   },
   "devDependencies": {},
   "scripts": {
