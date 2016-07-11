@@ -260,6 +260,35 @@ server.route({
   }
 });
 
+server.route({
+  method: 'POST',
+  path:'/login',
+  handler: function (request, reply) {
+    var db = request.server.plugins['hapi-mongodb'].db;
+    var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;    
+    var token = request.payload.token;
+    if(!token) return reply(null);
+    var graph = require('fbgraph');
+    graph.setAccessToken(token);
+    graph.setVersion("2.6");
+    graph.get("me?fields=email,name", function(err, res) {        
+      let email = res.email;
+      if(!email) return reply(null);
+      db.collection('user').findOne({email: email}, (err, rs) => {
+        if(err) return reply(null);        
+        if(rs === null){
+          db.collection('user').insertOne({email: email, name: res.name}, (err, rs) => {
+            if (err) return reply(null);            
+            reply(rs.ops[0]);
+          });
+        }else{
+          reply(rs);
+        }
+      });      
+    });    
+  }
+});
+
 server.ext('onPreResponse', corsHeaders);
 server.register({
   register: require('hapi-mongodb'),
