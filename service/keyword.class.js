@@ -1,10 +1,10 @@
 module.exports = [
-  { _id: "a1", name: "18+",               pattern: '18\+' },
+  { _id: "a1", name: "18+",               pattern: '18\\+' },
   { _id: "a2", name: "5s Online",         pattern: '5s online' },
   { _id: "a3", name: "Ẩm thực",           pattern: 'am thuc|che bien|mon an|bua an' },
   { _id: "a4", name: "Ảo thuật",          pattern: 'ao thuat|magic|ao thuat|takayama|magic|dynamo' },
   { _id: "a5", name: "Bạn muốn hẹn hò",   pattern: 'ban muon hen ho' },
-  { _id: "a6", name: "Bóng đá",           pattern: 'bong da|messi|neymar|football|ghi ban|ban thang|thu mon|penalty|cau thu|van persie|cu sut|sut phat|lam ban|pha bong|cuu thua|tien dao|trung ve|hau ve|world cup|worldcup|fifa|(ronal\w+)|re bong|sut truot|copa america|andy cole|da phat|goals?|moc bong|gareth bale|tang bong|di bong|tranh bong' },
+  { _id: "a6", name: "Bóng đá",           pattern: 'bong da|messi|neymar|football|ghi ban|ban thang|thu mon|penalty|cau thu|van persie|cu sut|sut phat|lam ban|pha bong|cuu thua|tien dao|trung ve|hau ve|world cup|worldcup|fifa|(ronal\\w+)|re bong|sut truot|copa america|andy cole|da phat|goals?|moc bong|gareth bale|tang bong|di bong|tranh bong' },
   { _id: "a7", name: "Ca nhạc",           pattern: 'ca nhac|nghe roi cam nhận|nghe se nghien|taylor|mv|son tung|bai nay|maroon|nguyen dinh vu|big bang|bigbang|rap|ca khuc|music|ban nhac|mashup|bai hat|hoai lam|khac viet|oficial' },
   { _id: "a8", name: "Cảnh giác",         pattern: '' },
   { _id: "a9", name: "Công nghệ",         pattern: 'dong ho|xe may|may tinh bang|iphone|ipad|android|window phone|lumina|sieu xe|che tạo|cong nghe|airline|ferrari|lamborghini|laser|bphone|chiec xe|tuong lua|nam cham|dong co' },
@@ -36,10 +36,10 @@ module.exports = [
   { _id: "d5", name: "Trung Quốc",        pattern: 'trung quoc|china|chinese' },
   { _id: "d6", name: "US",                pattern: 'us|america' },
   { _id: "d7", name: "Việt Nam",          pattern: 'viet\\s?nam' },
-  { _id: "d8", name: "Vlog",              pattern: 'vlog|vinh râu|phở đặc biệt|Nghịch \d+' },
+  { _id: "d8", name: "Vlog",              pattern: 'vlog|vinh râu|phở đặc biệt|Nghịch \\d+' },
   { _id: "d9", name: "Võ thuật",          pattern: 'karate|takewondo|võ sĩ|diễn võ thuật|wwe|thiếu lâm|võ thuật|múa kiếm' },
   { _id: "d0", name: "VPop",              pattern: 'vpop' },
   { _id: "e1", name: "Got talent",        pattern: 'talent|gottalent' },
-  { _id: "e2", name: "XFactor",           pattern: 'x\s?factor|nhân tố bí ẩn' },
+  { _id: "e2", name: "XFactor",           pattern: 'x\\s?factor|nhân tố bí ẩn' },
   { _id: "e3", name: "Ý nghĩa",           pattern: 'cảm động|ý nghĩa|quà tặng cuộc sống|lòng tốt|tấm lòng' }
 ];

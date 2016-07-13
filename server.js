@@ -93,7 +93,8 @@ server.route({
     page = parseInt(page);
     rows = parseInt(rows);
     var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
-    var where = {_id: {$ne: new ObjectID(id)}, status: 1};    
+    id = new ObjectID(id)
+    var where = {_id: {$ne: id}, status: 1};    
     if(keywords){
       keywords = keywords.split(',');
       if(keywords.length > 0) {
@@ -107,6 +108,11 @@ server.route({
       if (err) return console.error(err);
       if(rs.length < rows){
         delete where.keywords;
+        if(rs.length > 0) {
+          var ids =rs.map((v)=>{ return v._id;});
+          ids.push(id);
+          where._id = {$nin: ids};
+        }
         db.collection('clip').find(where).sort([['updateat', -1]]).limit(rows - rs.length).toArray((err, rs0) => {
           if (err) return console.error(err); 
           reply(rs.concat(rs0));          
