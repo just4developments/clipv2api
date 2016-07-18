@@ -3,16 +3,35 @@ const corsHeaders = require('hapi-cors-headers');
 const async = require('async');
 
 // Create a server with a host and port
-const server = new Hapi.Server();
+const server = new Hapi.Server({
+  cache: [
+    {
+      name: 'mongoCache',
+      engine: require('catbox-mongodb'),
+      host: '127.0.0.1',
+      partition: 'clipv2',
+    }
+  ]
+});
 server.connection({ 
-    host: 'localhost', 
-    port: 8000 
+  port: 8000 
 });
 
 const utils = require('./service/utils');
 const keywords = require('./service/keyword.class');
-
 // Add the route
+const cacheExpires = {
+  newest: 5 * 60 * 1000,
+  most: 10 * 60 * 1000,
+  hot: 15 * 60 * 1000,
+  detail: 5 * 60 * 1000,
+  relate: 5 * 60 * 1000
+};
+const clipCached = server.cache({ 
+  cache: 'mongoCache', 
+  segment: 'clip',
+  expiresIn: 5000
+});
 
 server.route({
   method: 'GET',
@@ -46,14 +65,89 @@ server.route({
   path:'/video/newest',
   handler: function (request, reply) {
     var page = request.query.page || 1;
+    var rows = request.query.rows || 12;
+    page = parseInt(page);
+    rows = parseInt(rows);    
+    var key = `newest.${page}.${rows}`;
+    clipCached.get(key, (err, value, cached) => {
+      if(err) return console.error(err);
+      if(cached !== null) return reply(value).header('last-modified', new Date(cached.stored).toUTCString());
+      var db = request.server.plugins['hapi-mongodb'].db;
+      db.collection('clip').find({status: 1}).sort([['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {        
+        if (err) return console.error(err);
+        clipCached.set(key, rs, cacheExpires.newest, (err) => { if (err) return console.error(err); });
+        reply(rs).header('last-modified', new Date().toUTCString());
+      });
+    });    
+  }
+});
+
+server.route({
+  method: 'GET',
+  path:'/video/most',
+  handler: function (request, reply) {
+    var page = request.query.page || 1;
+    var rows = request.query.rows || 10;
+    page = parseInt(page);
+    rows = parseInt(rows);
+    var key = `most.${page}.${rows}`;
+    clipCached.get(key, (err, value, cached) => {
+      if(err) return console.error(err);
+      if(cached !== null) return reply(value).header('last-modified', new Date(cached.stored).toUTCString());
+      var db = request.server.plugins['hapi-mongodb'].db;
+      db.collection('clip').find({status: 1}).sort([['viewcount', -1], ['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
+        if (err) return console.error(err);
+        clipCached.set(key, rs, cacheExpires.most, (err) => { if (err) return console.error(err); });
+        reply(rs).header('last-modified', new Date().toUTCString());
+      });
+    });
+  }
+});
+
+server.route({
+  method: 'GET',
+  path:'/video/hot',
+  handler: function (request, reply) {
+    var page = request.query.page || 1;
     var rows = request.query.rows || 10;
     page = parseInt(page);
     rows = parseInt(rows);
 
-    var db = request.server.plugins['hapi-mongodb'].db;
-    db.collection('clip').find({status: 1}).sort([['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
-      if (err) return console.error(err);
-      reply(rs);
+    var key = `hot.${page}.${rows}`;
+    clipCached.get(key, (err, value, cached) => {
+      if(err) return console.error(err);
+      if(cached !== null) return reply(value).header('last-modified', new Date(cached.stored).toUTCString());
+      var db = request.server.plugins['hapi-mongodb'].db;
+      db.collection('clip').find({status: 1}).sort([['viewcount', -1], ['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
+        if (err) return console.error(err);
+        clipCached.set(key, rs, cacheExpires.hot, (err) => { if (err) return console.error(err); });
+        reply(rs).header('last-modified', new Date().toUTCString());
+      });
+    });
+  }
+});
+
+server.route({
+  method: 'GET',
+  path:'/video/{id}',
+  handler: function (request, reply) {
+    if(request.params.id === undefined) return reply(null);
+
+    var key = `detail.${request.params.id}`;
+    clipCached.get(key, (err, cached) => {
+      if(err) return console.error(err);
+      if(cached !== null) return reply(value).header('last-modified', new Date(cached.stored).toUTCString());
+      var db = request.server.plugins['hapi-mongodb'].db;
+      var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
+      db.collection('clip').findOne({_id: new ObjectID(request.params.id)}, (err, rs) => {
+        if (err) return console.error(err);
+        if(!rs) return reply(null);
+        rs.viewcount++;
+        clipCached.set(key, rs, cacheExpires.detail, (err) => { if (err) return console.error(err); });
+        db.collection('clip').updateOne({_id: rs._id}, { $set: { viewcount : rs.viewcount } }, (err, rs0) => {
+          reply(rs).header('last-modified', new Date().toUTCString());
+        });      
+      });
     });
   }
 });
@@ -85,91 +179,49 @@ server.route({
   method: 'GET',
   path:'/video/relate',
   handler: function (request, reply) {
-    var id = request.query.id;
-    var keywords = request.query.keywords;
+    var id = request.query.id;    
     if(!id) return reply(null);
+    var keywords = request.query.keywords;
     var page = request.query.page || 1;
     var rows = request.query.rows || 10;
     page = parseInt(page);
     rows = parseInt(rows);
-    var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
-    id = new ObjectID(id)
-    var where = {_id: {$ne: id}, status: 1};    
-    if(keywords){
-      keywords = keywords.split(',');
-      if(keywords.length > 0) {
-        if(keywords.length > 1) where.keywords = {$in : keywords};
-        else where.keywords = keywords[0];
-      }
-      where.updateat = {$lte: new Date(request.query.updateat)}
-    }
-    var db = request.server.plugins['hapi-mongodb'].db;
-    db.collection('clip').find(where).sort([['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
-      if (err) return console.error(err);
-      if(rs.length < rows){
-        delete where.keywords;
-        if(rs.length > 0) {
-          var ids =rs.map((v)=>{ return v._id;});
-          ids.push(id);
-          where._id = {$nin: ids};
+    
+    var key = `relate.${id}`;
+    clipCached.get(key, (err, cached) => {
+      if(err) return console.error(err);
+      if(cached) return reply(cached);
+      var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
+      id = new ObjectID(id)
+      var where = {_id: {$ne: id}, status: 1};    
+      if(keywords){
+        keywords = keywords.split(',');
+        if(keywords.length > 0) {
+          if(keywords.length > 1) where.keywords = {$in : keywords};
+          else where.keywords = keywords[0];
         }
-        db.collection('clip').find(where).sort([['updateat', -1]]).limit(rows - rs.length).toArray((err, rs0) => {
-          if (err) return console.error(err); 
-          reply(rs.concat(rs0));          
-        });
-      }else{
-        reply(rs);
+        where.updateat = {$lte: new Date(request.query.updateat)}
       }
-    });
-  }
-});
-
-server.route({
-  method: 'GET',
-  path:'/video/most',
-  handler: function (request, reply) {
-    var page = request.query.page || 1;
-    var rows = request.query.rows || 10;
-    page = parseInt(page);
-    rows = parseInt(rows);
-
-    var db = request.server.plugins['hapi-mongodb'].db;
-    db.collection('clip').find({status: 1}).sort([['viewcount', -1], ['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
-      if (err) return console.error(err);
-      reply(rs);
-    });
-  }
-});
-
-server.route({
-  method: 'GET',
-  path:'/video/hot',
-  handler: function (request, reply) {
-    var page = request.query.page || 1;
-    var rows = request.query.rows || 10;
-    page = parseInt(page);
-    rows = parseInt(rows);
-
-    var db = request.server.plugins['hapi-mongodb'].db;
-    db.collection('clip').find({status: 1}).sort([['viewcount', -1], ['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
-      if (err) return console.error(err);
-      reply(rs);
-    });
-  }
-});
-
-server.route({
-  method: 'GET',
-  path:'/video/{id}',
-  handler: function (request, reply) {
-    var db = request.server.plugins['hapi-mongodb'].db;
-    var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
-    db.collection('clip').findOne({_id: new ObjectID(request.params.id)}, (err, rs) => {
-      if (err) return console.error(err);
-      rs.viewcount++;
-      db.collection('clip').updateOne({_id: rs._id}, { $set: { viewcount : rs.viewcount } }, (err, rs0) => {
-        reply(rs);
-      });      
+      var db = request.server.plugins['hapi-mongodb'].db;
+      db.collection('clip').find(where).sort([['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
+        if (err) return console.error(err);
+        if(rs.length < rows){
+          delete where.keywords;
+          if(rs.length > 0) {
+            var ids =rs.map((v)=>{ return v._id;});
+            ids.push(id);
+            where._id = {$nin: ids};
+          }
+          db.collection('clip').find(where).sort([['updateat', -1]]).limit(rows - rs.length).toArray((err, rs0) => {
+            if (err) return console.error(err); 
+            rs = rs.concat(rs0);
+            clipCached.set(key, rs, cacheExpires.relate, (err) => { if (err) return console.error(err); });
+            reply(rs);
+          });
+        }else{
+          reply(rs);
+        }
+      });
     });
   }
 });
