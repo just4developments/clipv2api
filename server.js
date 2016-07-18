@@ -192,7 +192,7 @@ server.route({
     page = parseInt(page);
     rows = parseInt(rows);
     
-    var key = `relate.${id}`;
+    var key = `relate.${id}`;    
     clipCached.get(key, (err, value, cached) => {
       if(err) return console.error(err);
       if(cached !== null) return reply(value).header('last-modified', new Date(cached.stored).toUTCString());
@@ -224,6 +224,7 @@ server.route({
             reply(rs).header('last-modified', new Date().toUTCString());
           });
         }else{
+          clipCached.set(key, rs, cacheExpires.relate, (err) => { if (err) return console.error(err); });
           reply(rs).header('last-modified', new Date().toUTCString());
         }
       });
