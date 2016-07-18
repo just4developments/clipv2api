@@ -2,13 +2,11 @@ const Hapi = require('hapi');
 const corsHeaders = require('hapi-cors-headers');
 const async = require('async');
 
-// Create a server with a host and port
 const server = new Hapi.Server({
   cache: [
     {
       name: 'mongoCache',
       engine: require('catbox-mongodb'),
-      host: '127.0.0.1',
       partition: 'clipv2',
     }
   ]
@@ -19,13 +17,14 @@ server.connection({
 
 const utils = require('./service/utils');
 const keywords = require('./service/keyword.class');
-// Add the route
+
 const cacheExpires = {
   newest: 5 * 60 * 1000,
   most: 10 * 60 * 1000,
   hot: 15 * 60 * 1000,
   detail: 5 * 60 * 1000,
-  relate: 5 * 60 * 1000
+  relate: 5 * 60 * 1000,
+  keyword: 5 * 60 * 1000
 };
 const clipCached = server.cache({ 
   cache: 'mongoCache', 
@@ -37,7 +36,7 @@ server.route({
   method: 'GET',
   path:'/keywords',
   handler: function (request, reply) {
-    reply(keywords);
+    reply(keywords).header('etag', '59aeb2c9970b7b25be2fab2317e31fcb');
   }
 });
 
@@ -52,10 +51,16 @@ server.route({
     page = parseInt(page);
     rows = parseInt(rows);
 
-    var db = request.server.plugins['hapi-mongodb'].db;
-    db.collection('clip').find({keywords: keyword, status: 1}).sort([['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
-      if (err) return console.error(err);
-      reply(rs);
+    var key = `keyword.${page}.${rows}.${keyword}`;
+    clipCached.get(key, (err, value, cached) => {
+      if(err) return console.error(err);
+      if(cached !== null) return reply(value).header('last-modified', new Date(cached.stored).toUTCString());
+      var db = request.server.plugins['hapi-mongodb'].db;
+      db.collection('clip').find({keywords: keyword, status: 1}).sort([['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
+        if (err) return console.error(err);
+        clipCached.set(key, rs, cacheExpires.keyword, (err) => { if (err) return console.error(err); });
+        reply(rs).header('last-modified', new Date().toUTCString());
+      });
     });
   }
 });
@@ -134,7 +139,7 @@ server.route({
     if(request.params.id === undefined) return reply(null);
 
     var key = `detail.${request.params.id}`;
-    clipCached.get(key, (err, cached) => {
+    clipCached.get(key, (err, value, cached) => {
       if(err) return console.error(err);
       if(cached !== null) return reply(value).header('last-modified', new Date(cached.stored).toUTCString());
       var db = request.server.plugins['hapi-mongodb'].db;
@@ -188,9 +193,9 @@ server.route({
     rows = parseInt(rows);
     
     var key = `relate.${id}`;
-    clipCached.get(key, (err, cached) => {
+    clipCached.get(key, (err, value, cached) => {
       if(err) return console.error(err);
-      if(cached) return reply(cached);
+      if(cached !== null) return reply(value).header('last-modified', new Date(cached.stored).toUTCString());
       var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
       id = new ObjectID(id)
       var where = {_id: {$ne: id}, status: 1};    
@@ -216,10 +221,10 @@ server.route({
             if (err) return console.error(err); 
             rs = rs.concat(rs0);
             clipCached.set(key, rs, cacheExpires.relate, (err) => { if (err) return console.error(err); });
-            reply(rs);
+            reply(rs).header('last-modified', new Date().toUTCString());
           });
         }else{
-          reply(rs);
+          reply(rs).header('last-modified', new Date().toUTCString());
         }
       });
     });
@@ -258,15 +263,7 @@ server.route({
       return item;
     };
     var jobs = [];
-    if(request.payload instanceof Array){
-      for(var a of request.payload){
-        jobs.push(((payload, cb) => {
-          // copyToItem(payload, (item)=>{
-          //   cb(null, item);
-          // });
-        }).bind(null, a));
-      }
-    }else{
+    if(request.payload instanceof Object){      
       jobs.push(((payload, cb) => {
         copyToItem(payload, (item)=>{
           cb(null, item);
@@ -363,8 +360,6 @@ server.register({
     console.error(err);
     throw err;
   }
-
-  // Start the server
   server.start((err) => {
     if (err) {
         throw err;
