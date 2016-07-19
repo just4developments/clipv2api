@@ -1,6 +1,10 @@
-const Hapi = require('hapi');
-const corsHeaders = require('hapi-cors-headers');
-const async = require('async');
+let Hapi = require('hapi');
+let corsHeaders = require('hapi-cors-headers');
+let async = require('async');
+
+let utils = require('./service/utils');
+let keywords = require('./service/keyword.class');
+let HashService = require('./service/hash-service');
 
 const server = new Hapi.Server({
   cache: [
@@ -14,9 +18,6 @@ const server = new Hapi.Server({
 server.connection({ 
   port: 8000 
 });
-
-const utils = require('./service/utils');
-const keywords = require('./service/keyword.class');
 
 const cacheExpires = {
   newest: 5 * 60 * 1000,
@@ -141,18 +142,26 @@ server.route({
     var key = `detail.${request.params.id}`;
     clipCached.get(key, (err, value, cached) => {
       if(err) return console.error(err);
-      if(cached !== null) return reply(value).header('last-modified', new Date(cached.stored).toUTCString());
       var db = request.server.plugins['hapi-mongodb'].db;
       var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
-      db.collection('clip').findOne({_id: new ObjectID(request.params.id)}, (err, rs) => {
-        if (err) return console.error(err);
-        if(!rs) return reply(null);
-        rs.viewcount++;
-        clipCached.set(key, rs, cacheExpires.detail, (err) => { if (err) return console.error(err); });
-        db.collection('clip').updateOne({_id: rs._id}, { $set: { viewcount : rs.viewcount } }, (err, rs0) => {
-          reply(rs).header('last-modified', new Date().toUTCString());
-        });      
-      });
+      if(cached !== null) {
+        db.collection('clip').update(
+          {_id: new ObjectID(request.params.id)}, 
+          { $inc: {viewcount: 1} }, (err, rs) => {
+            if(err) console.error(err);
+            return reply(value).header('last-modified', new Date(cached.stored).toUTCString());
+          });          
+      }else{      
+        db.collection('clip').findOne({_id: new ObjectID(request.params.id)}, (err, rs) => {
+          if (err) console.error(err);
+          if(!rs) return reply(null);
+          rs.viewcount++;
+          clipCached.set(key, rs, cacheExpires.detail, (err) => { if (err) return console.error(err); });
+          db.collection('clip').updateOne({_id: rs._id}, { $set: { viewcount : rs.viewcount } }, (err, rs0) => {
+            reply(rs).header('last-modified', new Date().toUTCString());
+          });      
+        });
+      }
     });
   }
 });
@@ -346,6 +355,16 @@ server.route({
 });
 
 server.ext('onPreResponse', corsHeaders);
+if(!process.argv[2]){
+  server.ext('onPostHandler', function(request, reply) {  
+    var response = request.response;
+    if (!response.isBoom && response.source) {
+      response.headers['content-type'] = 'encryption/json';
+      response.source = HashService.encrypt(response.source);
+    }
+    return reply.continue();
+  });
+}
 server.register({
   register: require('hapi-mongodb'),
   options: {
