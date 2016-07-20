@@ -1,6 +1,7 @@
 let Hapi = require('hapi');
 let corsHeaders = require('hapi-cors-headers');
 let async = require('async');
+let unirest = require('unirest');
 
 let utils = require('./service/utils');
 let keywords = require('./service/keyword.class');
@@ -29,8 +30,8 @@ const cacheExpires = {
 };
 const clipCached = server.cache({ 
   cache: 'mongoCache', 
-  segment: 'clip',
-  expiresIn: 5000
+  segment: 'cached',
+  expiresIn: 15 * 60 * 1000
 });
 
 server.route({
@@ -255,6 +256,31 @@ server.route({
 });
 
 server.route({
+  method: 'GET',
+  path:'/youtube/{id}',
+  handler: function (request, reply) {
+    let url = 'https://www.googleapis.com/youtube/v3/videos?id=' + request.params.id + '&key=' + utils.googleapikey + '&fields=items(snippet(title),contentDetails(duration))&part=snippet,contentDetails';
+    unirest('GET', url, {
+      'Host': 'www.googleapis.com',
+      'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.87 Safari/537.36'
+    }, null, (res)=>{
+      if(res.statusCode !== 200) {
+        console.error('Get youtube infor error ', res.statusCode, headers, url);
+        return reply(null).status(500);
+      }
+      var e = {};
+      var item = res.body;
+      item = item.items;
+      if(item.length > 0) item = item[0];
+      e.title = item.snippet.title;
+      e.rawtitle = item.snippet.title;        
+      e.duration = utils.getDuration(item.contentDetails.duration);
+      reply(e);
+    });
+  }
+});
+
+server.route({
   method: 'POST',
   path:'/video',
   handler: function (request, reply) {
@@ -263,14 +289,18 @@ server.route({
     var data = [];
     var copyToItem = (payload, cb) => {
       var item = {};
-      item.title = payload.title;
+      item.title = payload.title || payload.rawtitle;
       item.creator = payload.creator;
       item.link = payload.link;
-      item.youtubeid = payload.youtubeid;
+      if(payload.youtubeid) item.youtubeid = payload.youtubeid;
+      if(payload.facebookid) item.facebookid = payload.facebookid;
+      item.image = payload.image;
       item.site = 'http://localhost/';
       item.status = 0;
-      item = utils.applyInfor(item, keywords, cb);  
-      return item;
+      item.utitle = utils.toUnsigned(item.title + " <|> " + payload.rawtitle);
+      if(payload.duration) item.duration = utils.getDuration(payload.duration); 
+      item = utils.appendDefaultAttr(item, keywords);
+      cb(item);
     };
     var jobs = [];
     if(request.payload instanceof Object){      

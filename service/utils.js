@@ -3,6 +3,7 @@ let unirest = require('unirest');
 const googleapikey = 'AIzaSyDZGfuJuAR3Kr_hLNlW4r-UfKKyDqI29tQ';
 
 exports = module.exports = {
+  googleapikey: googleapikey,
   toUnsigned: (alias, isRemoveSpecial) => {
     var str = alias;
     str= str.toLowerCase(); 
@@ -55,28 +56,5 @@ exports = module.exports = {
       str = str.substr(2);
     }
     return str;
-  },
-  applyInfor: (e, keywords, cb) => {    
-    let url = 'https://www.googleapis.com/youtube/v3/videos?id=' + e.youtubeid + '&key=' + googleapikey + '&fields=items(snippet(title),contentDetails(duration))&part=snippet,contentDetails';
-    unirest('GET', url, {
-      'Host': 'www.googleapis.com',
-      'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.87 Safari/537.36'
-    }, null, (res)=>{
-      if(res.statusCode !== 200) {
-        console.error('Get youtube infor error ', res.statusCode, headers, url);
-      }
-      var item = res.body;
-      item = item.items;
-      if(item.length > 0) item = item[0];
-      if(!e.title || e.title.length === 0) {
-        e.title = item.snippet.title;
-        e.utitle = exports.toUnsigned(e.title);
-      }else{
-        e.utitle = exports.toUnsigned(e.title) + "<|>" + exports.toUnsigned(item.snippet.title);
-      }         
-      e.duration = exports.getDuration(item.contentDetails.duration);
-      e = exports.appendDefaultAttr(e, keywords);
-      cb(e);
-    });
   }
 }
