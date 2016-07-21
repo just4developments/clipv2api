@@ -2,6 +2,7 @@ let Hapi = require('hapi');
 let corsHeaders = require('hapi-cors-headers');
 let async = require('async');
 let unirest = require('unirest');
+let fs = require('fs');
 
 let utils = require('./service/utils');
 let keywords = require('./service/keyword.class');
@@ -34,11 +35,12 @@ const clipCached = server.cache({
   expiresIn: 15 * 60 * 1000
 });
 
+let lastModifiedKeyword = new Date(fs.statSync('./service/keyword.class.js').mtime).toUTCString();
 server.route({
   method: 'GET',
   path:'/keywords',
   handler: function (request, reply) {
-    reply(keywords).header('etag', '59aeb2c9970b7b25be2fab2317e31fcb');
+    reply(keywords).header('Last-Modified', lastModifiedKeyword);
   }
 });
 
@@ -56,12 +58,12 @@ server.route({
     var key = `keyword.${page}.${rows}.${keyword}`;
     clipCached.get(key, (err, value, cached) => {
       if(err) return console.error(err);
-      if(cached !== null) return reply(value).header('last-modified', new Date(cached.stored).toUTCString());
+      if(cached !== null) return reply(value).header('Last-Modified', new Date(cached.stored).toUTCString());
       var db = request.server.plugins['hapi-mongodb'].db;
       db.collection('clip').find({keywords: keyword, status: 1}).sort([['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
         if (err) return console.error(err);
         clipCached.set(key, rs, cacheExpires.keyword, (err) => { if (err) return console.error(err); });
-        reply(rs).header('last-modified', new Date().toUTCString());
+        reply(rs).header('Last-Modified', new Date().toUTCString());
       });
     });
   }
@@ -78,12 +80,12 @@ server.route({
     var key = `newest.${page}.${rows}`;
     clipCached.get(key, (err, value, cached) => {
       if(err) return console.error(err);
-      if(cached !== null) return reply(value).header('last-modified', new Date(cached.stored).toUTCString());
+      if(cached !== null) return reply(value).header('Last-Modified', new Date(cached.stored).toUTCString());
       var db = request.server.plugins['hapi-mongodb'].db;
       db.collection('clip').find({status: 1}).sort([['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {        
         if (err) return console.error(err);
         clipCached.set(key, rs, cacheExpires.newest, (err) => { if (err) return console.error(err); });
-        reply(rs).header('last-modified', new Date().toUTCString());
+        reply(rs).header('Last-Modified', new Date().toUTCString());
       });
     });    
   }
@@ -100,12 +102,12 @@ server.route({
     var key = `most.${page}.${rows}`;
     clipCached.get(key, (err, value, cached) => {
       if(err) return console.error(err);
-      if(cached !== null) return reply(value).header('last-modified', new Date(cached.stored).toUTCString());
+      if(cached !== null) return reply(value).header('Last-Modified', new Date(cached.stored).toUTCString());
       var db = request.server.plugins['hapi-mongodb'].db;
       db.collection('clip').find({status: 1}).sort([['viewcount', -1], ['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
         if (err) return console.error(err);
         clipCached.set(key, rs, cacheExpires.most, (err) => { if (err) return console.error(err); });
-        reply(rs).header('last-modified', new Date().toUTCString());
+        reply(rs).header('Last-Modified', new Date().toUTCString());
       });
     });
   }
@@ -123,12 +125,12 @@ server.route({
     var key = `hot.${page}.${rows}`;
     clipCached.get(key, (err, value, cached) => {
       if(err) return console.error(err);
-      if(cached !== null) return reply(value).header('last-modified', new Date(cached.stored).toUTCString());
+      if(cached !== null) return reply(value).header('Last-Modified', new Date(cached.stored).toUTCString());
       var db = request.server.plugins['hapi-mongodb'].db;
       db.collection('clip').find({status: 1}).sort([['viewcount', -1], ['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
         if (err) return console.error(err);
         clipCached.set(key, rs, cacheExpires.hot, (err) => { if (err) return console.error(err); });
-        reply(rs).header('last-modified', new Date().toUTCString());
+        reply(rs).header('Last-Modified', new Date().toUTCString());
       });
     });
   }
@@ -150,7 +152,7 @@ server.route({
           {_id: new ObjectID(request.params.id)}, 
           { $inc: {viewcount: 1} }, (err, rs) => {
             if(err) console.error(err);
-            return reply(value).header('last-modified', new Date(cached.stored).toUTCString());
+            return reply(value).header('Last-Modified', new Date(cached.stored).toUTCString());
           });          
       }else{      
         db.collection('clip').findOne({_id: new ObjectID(request.params.id)}, (err, rs) => {
@@ -159,7 +161,7 @@ server.route({
           rs.viewcount++;
           clipCached.set(key, rs, cacheExpires.detail, (err) => { if (err) return console.error(err); });
           db.collection('clip').updateOne({_id: rs._id}, { $set: { viewcount : rs.viewcount } }, (err, rs0) => {
-            reply(rs).header('last-modified', new Date().toUTCString());
+            reply(rs).header('Last-Modified', new Date().toUTCString());
           });      
         });
       }
@@ -205,7 +207,7 @@ server.route({
     var key = `relate.${id}`;    
     clipCached.get(key, (err, value, cached) => {
       if(err) return console.error(err);
-      if(cached !== null) return reply(value).header('last-modified', new Date(cached.stored).toUTCString());
+      if(cached !== null) return reply(value).header('Last-Modified', new Date(cached.stored).toUTCString());
       var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
       id = new ObjectID(id)
       var where = {_id: {$ne: id}, status: 1};    
@@ -231,11 +233,11 @@ server.route({
             if (err) return console.error(err); 
             rs = rs.concat(rs0);
             clipCached.set(key, rs, cacheExpires.relate, (err) => { if (err) return console.error(err); });
-            reply(rs).header('last-modified', new Date().toUTCString());
+            reply(rs).header('Last-Modified', new Date().toUTCString());
           });
         }else{
           clipCached.set(key, rs, cacheExpires.relate, (err) => { if (err) return console.error(err); });
-          reply(rs).header('last-modified', new Date().toUTCString());
+          reply(rs).header('Last-Modified', new Date().toUTCString());
         }
       });
     });
@@ -248,7 +250,7 @@ server.route({
   handler: function (request, reply) {
     var db = request.server.plugins['hapi-mongodb'].db;
     var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
-    db.collection('clip').find({creator: request.headers.me}).sort({updateat: -1}).limit(20).toArray((err, rs) => {
+    db.collection('clip').find({creatorid: request.headers.me}).sort({updateat: -1}).limit(20).toArray((err, rs) => {
       if (err) return console.error(err);      
       reply(rs);
     });
@@ -286,11 +288,11 @@ server.route({
   handler: function (request, reply) {
     var db = request.server.plugins['hapi-mongodb'].db;
     var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
-    var data = [];
     var copyToItem = (payload, cb) => {
       var item = {};
       item.title = payload.title || payload.rawtitle;
       item.creator = payload.creator;
+      item.creatorid = request.headers.me;
       item.link = payload.link;
       if(payload.youtubeid) item.youtubeid = payload.youtubeid;
       if(payload.facebookid) item.facebookid = payload.facebookid;
@@ -303,19 +305,22 @@ server.route({
       cb(item);
     };
     var jobs = [];
-    if(request.payload instanceof Object){      
-      jobs.push(((payload, cb) => {
-        copyToItem(payload, (item)=>{
-          cb(null, item);
-        });
-      }).bind(null, request.payload));
-    }    
-    async.series(jobs, (err, data) => {
-      db.collection('clip').insertMany(data, (err, rs) => {
-        if (err) return console.error(err);
-        reply(data);
-      });
-    });    
+    copyToItem(request.payload, (item)=>{
+      var where = {};
+      if(item.facebookid) where.facebookid = item.facebookid;
+      if(item.youtubeid) where.youtubeid = item.youtubeid;
+      db.collection('clip').find(where).limit(1).toArray((err, rs)=>{
+        if(err) return console.error(err);
+        if(rs && rs.length > 0){
+          reply([]);
+        }else{
+          db.collection('clip').insertOne(item, (err, rs) => {
+            if (err) return console.error(err);
+            reply(rs.ops);
+          });
+        }
+      })            
+    });
   }
 });
 
@@ -342,10 +347,10 @@ server.route({
   handler: function (request, reply) {
     var db = request.server.plugins['hapi-mongodb'].db;
     var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
-    db.collection('clip').findOne({_id: new ObjectID(request.params.id)}, (err, rs) => {
+    db.collection('clip').findOne({_id: new ObjectID(request.params.id), status: 0}, (err, rs) => {
       if (err) return console.error(err);
-      if(rs.creator === request.headers.me){
-        db.collection('clip').deleteOne({_id: rs._id}, { $set: { viewcount : rs.viewcount } }, (err, rs0) => {
+      if(rs && rs.creatorid === request.headers.me){
+        db.collection('clip').deleteOne({_id: rs._id}, (err, rs0) => {
           reply(rs);
         });      
       }else{
@@ -372,7 +377,7 @@ server.route({
       db.collection('user').findOne({email: email}, (err, rs) => {
         if(err) return reply(null);        
         if(rs === null){
-          db.collection('user').insertOne({email: email, name: res.name}, (err, rs) => {
+          db.collection('user').insertOne({email: email, name: res.name, favorites: []}, (err, rs) => {
             if (err) return reply(null);            
             reply(rs.ops[0]);
           });
@@ -381,6 +386,47 @@ server.route({
         }
       });      
     });    
+  }
+});
+
+server.route({
+  method: 'POST',
+  path:'/favorite',
+  handler: function (request, reply) {
+    var db = request.server.plugins['hapi-mongodb'].db;
+    var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
+    db.collection('user').findOne({_id: new ObjectID(request.headers.me)}, (err, rs) => {
+      if (err) return console.error(err);
+      if(rs._id.toString() === request.headers.me){
+        rs.favorites.push(request.payload);
+        db.collection('user').update({_id: rs._id}, { $set: { favorites : rs.favorites } }, (err, rs0) => {
+          if (err) return console.error(err);
+          reply(rs.favorites);
+        });      
+      }else{
+        reply(new Error({code:403}));
+      }
+    });
+  }
+});
+
+server.route({
+  method: 'DELETE',
+  path:'/favorite/{id}',
+  handler: function (request, reply) {
+    var db = request.server.plugins['hapi-mongodb'].db;
+    var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
+    db.collection('user').findOne({_id: new ObjectID(request.headers.me)}, (err, rs) => {
+      if (err) return console.error(err);
+      db.collection('user').update({_id: rs._id}, { $pull: { 'favorites': { _id: request.params.id } } }, (err, rs0) => {
+        rs.favorites.splice(rs.favorites.findIndex((e, idx, arr) => {
+          if(e._id === request.params.id) return true;
+          return false;
+        }), 1);
+        console.log(rs.favorites);
+        reply(rs.favorites);
+      });
+    });
   }
 });
 

@@ -14,11 +14,11 @@ exports = module.exports = {
     str= str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g,"u"); 
     str= str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g,"y"); 
     str= str.replace(/đ/g,"d"); 
-    // if(isRemoveSpecial) str= str.replace(/!|@|%|\^|\*|\(|\)|\+|\=|\<|\>|\?|\/|,|\.|\:|\;|\'| |\"|\&|\#|\[|\]|~|$|_/g,"-");
-    //  tìm và thay thế các kí tự đặc biệt trong chuỗi sang kí tự - 
-    // str= str.replace(/-+-/g,"-"); //thay thế 2- thành 1-
-    // str= str.replace(/^\-+|\-+$/g,""); 
-    //cắt bỏ ký tự - ở đầu và cuối chuỗi 
+    if(isRemoveSpecial) {
+      str= str.replace(/!|@|%|\^|\*|\(|\)|\+|\=|\<|\>|\?|\/|,|\.|\:|\;|\'| |\"|\&|\#|\[|\]|~|$|_|\|/g,"-");     
+      str= str.replace(/-+-/g,"-");
+      str= str.replace(/^\-+|\-+$/g,""); 
+    }
     return str;
   },
   swap: (rs) => {
@@ -39,7 +39,8 @@ exports = module.exports = {
     if(!obj.creator) obj.creator = "Admin";
     if(!obj.keywords) obj.keywords = [];
     if(!obj.viewcount) obj.viewcount = 0;
-    if(!obj.utitle) obj.utitle = toUnsigned(obj.title);
+    if(!obj.utitle) obj.utitle = exports.toUnsigned(obj.title);
+    obj.title0 = exports.toUnsigned(obj.title, true);
     for(var k of keywords){
      if(k.pattern && k.pattern.length > 0){
        let regex = new RegExp(k.pattern, 'igm'); 
