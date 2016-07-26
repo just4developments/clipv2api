@@ -44,6 +44,120 @@ server.route({
   }
 });
 
+// ADMIN
+
+server.route({
+  method: 'GET',
+  path:'/user-in-web',
+  handler: function (request, reply) {
+    var page = request.query.page || 1;
+    var rows = request.query.rows || 100;    
+    page = parseInt(page);
+    rows = parseInt(rows);
+
+    var db = request.server.plugins['hapi-mongodb'].db;
+    var html = '';
+    html += `<table border="1" cellpadding="5" cellspacing="1">
+              <thead>
+                <tr>
+                  <th>STT</th>
+                  <th>Email</th>
+                  <th>Create at</th>
+                </tr>
+              </thead>
+              <tbody>
+    `;
+    db.collection('user').find().sort(['createat', -1]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
+      if (err) return console.error(err);
+      var i = 1;
+      for(var r of rs){        
+        html += '<tr>';
+        html += `<th>${i}</th>`;
+        html += `<td>${r.email}</td>`;
+        html += `<td>${r.createat.toUTCString()}</td>`;
+        html += '</tr>';
+        i++;
+      }
+      html += '</tbody></table>';
+      reply(html);
+    });
+
+  }
+});
+
+server.route({
+  method: 'GET',
+  path:'/video/waiting',
+  handler: function (request, reply) {
+    var page = request.query.page || 1;
+    var rows = request.query.rows || 100;    
+    page = parseInt(page);
+    rows = parseInt(rows);
+
+    var db = request.server.plugins['hapi-mongodb'].db;
+    var html = '';
+    html += `<table border="1" cellpadding="5" cellspacing="1">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Creator</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+    `;
+    db.collection('clip').find({status: 0}).sort(['createat', 1]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
+      if (err) return console.error(err);            
+      for(var r of rs){
+        html += '<tr>';
+        html += `<td>${r.title}</td>`;
+        html += `<td>${r.creator}</td>`;
+        html += `<td><a href="/video/pass/${r._id}" target="32o423809">Passed</a>&nbsp;&nbsp;&nbsp;<a href="/video/remove/${r._id}" target="32o423809">Remove</a></td>`;
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+      reply(html);
+    });
+
+  }
+});
+
+server.route({
+  method: 'GET',
+  path:'/video/pass/{id}',
+  handler: function (request, reply) {
+    var db = request.server.plugins['hapi-mongodb'].db;
+    var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
+    db.collection('clip').findOne({_id: new ObjectID(request.params.id)}, (err, rs) => {
+      if (err) return console.error(err);
+      rs.status = 1;
+      rs.updateat = new Date();
+      db.collection('clip').updateOne({_id: rs._id}, { $set: { status : rs.status } }, (err, rs0) => {
+        reply(rs);
+      });      
+    });
+  }
+});
+
+server.route({
+  method: 'GET',
+  path:'/video/remove/{id}',
+  handler: function (request, reply) {
+    var db = request.server.plugins['hapi-mongodb'].db;
+    var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
+    db.collection('clip').findOne({_id: new ObjectID(request.params.id)}, (err, rs) => {
+      if (err) return console.error(err);
+      rs.status = -1;
+      rs.updateat = new Date();
+      db.collection('clip').updateOne({_id: rs._id}, { $set: { status : rs.status } }, (err, rs0) => {
+        reply(rs);
+      });      
+    });
+  }
+});
+
+// END ADMIN
+
 server.route({
   method: 'GET',
   path:'/video/keyword',
@@ -325,23 +439,6 @@ server.route({
 });
 
 server.route({
-  method: 'PUT',
-  path:'/video/{id}',
-  handler: function (request, reply) {
-    var db = request.server.plugins['hapi-mongodb'].db;
-    var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
-    db.collection('clip').findOne({_id: new ObjectID(request.params.id)}, (err, rs) => {
-      if (err) return console.error(err);
-      rs.status = 1;
-      rs.updateat = new Date();
-      db.collection('clip').updateOne({_id: rs._id}, { $set: { status : rs.status } }, (err, rs0) => {
-        reply(rs);
-      });      
-    });
-  }
-});
-
-server.route({
   method: 'DELETE',
   path:'/video/{id}',
   handler: function (request, reply) {
@@ -377,7 +474,7 @@ server.route({
       db.collection('user').findOne({email: email}, (err, rs) => {
         if(err) return reply(null);        
         if(rs === null){
-          db.collection('user').insertOne({email: email, name: res.name, favorites: []}, (err, rs) => {
+          db.collection('user').insertOne({email: email, name: res.name, favorites: [], status: 1, createat: new Date(), updateat: new Date()}, (err, rs) => {
             if (err) return reply(null);            
             reply(rs.ops[0]);
           });
