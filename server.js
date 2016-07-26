@@ -79,7 +79,7 @@ server.route({
         i++;
       }
       html += '</tbody></table>';
-      reply(html);
+      reply(html).header('encrypt', '0');
     });
 
   }
@@ -116,7 +116,7 @@ server.route({
         html += '</tr>';
       }
       html += '</tbody></table>';
-      reply(html);
+      reply(html).header('encrypt', '0');
     });
 
   }
@@ -133,7 +133,7 @@ server.route({
       rs.status = 1;
       rs.updateat = new Date();
       db.collection('clip').updateOne({_id: rs._id}, { $set: { status : rs.status } }, (err, rs0) => {
-        reply(rs);
+        reply(rs).header('encrypt', '0');
       });      
     });
   }
@@ -150,7 +150,7 @@ server.route({
       rs.status = -1;
       rs.updateat = new Date();
       db.collection('clip').updateOne({_id: rs._id}, { $set: { status : rs.status } }, (err, rs0) => {
-        reply(rs);
+        reply(rs).header('encrypt', '0');
       });      
     });
   }
@@ -531,7 +531,7 @@ server.ext('onPreResponse', corsHeaders);
 if(!process.argv[2]){
   server.ext('onPostHandler', function(request, reply) {  
     var response = request.response;
-    if (!response.isBoom && response.source) {
+    if (!response.isBoom && response.source && response.headers['encrypt'] !== '0') {
       response.headers['content-type'] = 'encryption/json';
       response.source = HashService.encrypt(response.source);
     }
