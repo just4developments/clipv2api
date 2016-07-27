@@ -241,7 +241,7 @@ server.route({
       if(err) return console.error(err);
       if(cached !== null) return reply(value).header('Last-Modified', new Date(cached.stored).toUTCString());
       var db = request.server.plugins['hapi-mongodb'].db;
-      db.collection('clip').find({status: 1}).sort([['viewcount', -1], ['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
+      db.collection('clip').find({isSpecial: true, status: 1}).sort([['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
         if (err) return console.error(err);
         clipCached.set(key, rs, cacheExpires.hot, (err) => { if (err) return console.error(err); });
         reply(rs).header('Last-Modified', new Date().toUTCString());
@@ -439,6 +439,47 @@ server.route({
 });
 
 server.route({
+  method: 'PUT',
+  path:'/video/{id}',
+  handler: function (request, reply) {
+    if(request.payload.keywordid === undefined && request.payload.isSpecial === undefined && request.payload.status === undefined) return reply(new Error({code:500}));
+    var db = request.server.plugins['hapi-mongodb'].db;
+    var ObjectID = request.server.plugins['hapi-mongodb'].ObjectID;
+    db.collection('clip').findOne({_id: new ObjectID(request.params.id)}, (err, rs) => {
+      if (err) return console.error(err);
+      var key = `detail.${rs._id}`;
+      if(request.payload.keywordid !== undefined){
+        var idx = rs.keywords.indexOf(request.payload.keywordid);
+        if(idx !== -1){
+          rs.keywords.splice(idx, 1);
+        }else{
+          rs.keywords.push(request.payload.keywordid);
+        }
+        rs.updateat = new Date();
+        db.collection('clip').updateOne({_id: rs._id}, { $set: {keywords: rs.keywords, updateat: rs.updateat} }, (err, rs0) => {          
+          clipCached.drop(key, (err) => { if (err) return console.error(err); })
+          reply(rs.keywords);
+        });
+      }else if(request.payload.isSpecial !== undefined){
+        rs.isSpecial = request.payload.isSpecial;
+        rs.updateat = new Date();
+        db.collection('clip').updateOne({_id: rs._id}, { $set: {isSpecial: rs.isSpecial, updateat: rs.updateat} }, (err, rs0) => {
+          clipCached.drop(key, (err) => { if (err) return console.error(err); })
+          reply(rs.isSpecial);
+        });
+      }else if(request.payload.status !== undefined){
+        rs.status = request.payload.status;
+        rs.updateat = new Date();
+        db.collection('clip').updateOne({_id: rs._id}, { $set: {status: rs.status, updateat: rs.updateat} }, (err, rs0) => {
+          clipCached.drop(key, (err) => { if (err) return console.error(err); })
+          reply(rs.status);
+        });
+      }
+    });
+  }
+});
+
+server.route({
   method: 'DELETE',
   path:'/video/{id}',
   handler: function (request, reply) {
@@ -520,7 +561,6 @@ server.route({
           if(e._id === request.params.id) return true;
           return false;
         }), 1);
-        console.log(rs.favorites);
         reply(rs.favorites);
       });
     });
