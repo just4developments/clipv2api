@@ -568,10 +568,10 @@ server.route({
 });
 
 server.ext('onPreResponse', corsHeaders);
-if(!process.argv[2]){
-  server.ext('onPostHandler', function(request, reply) {  
+if(!process.argv[2]){  
+  server.ext('onPostHandler', function(request, reply) {      
     var response = request.response;
-    if (!response.isBoom && response.source && response.headers['encrypt'] !== '0' && request.request.headers['decrypt'] === undefined) {
+    if (!response.isBoom && response.source && response.headers['encrypt'] !== '0' && request.headers['decrypt'] === undefined) {
       response.headers['content-type'] = 'encryption/json';
       response.source = HashService.encrypt(response.source);
     }
