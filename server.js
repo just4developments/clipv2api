@@ -22,12 +22,16 @@ server.connection({
 });
 
 const cacheExpires = {
-  newest: 5 * 60 * 1000,
+  newest: 10 * 60 * 1000,
+  newestPageSize: [],
   most: 10 * 60 * 1000,
+  mostPageSize: [],
   hot: 15 * 60 * 1000,
+  hotPageSize: [],
+  keyword: 5 * 60 * 1000,
+  keywordPageSize: [],
   detail: 5 * 60 * 1000,
-  relate: 5 * 60 * 1000,
-  keyword: 5 * 60 * 1000
+  relate: 5 * 60 * 1000  
 };
 const clipCached = server.cache({ 
   cache: 'mongoCache', 
@@ -43,6 +47,13 @@ server.route({
     reply(keywords).header('Last-Modified', lastModifiedKeyword);
   }
 });
+
+let releaseCache = (pageSizes) => {
+  if(!pageSizes) return;
+  while(pageSizes.length > 0) {
+    clipCached.drop(pageSizes.pop(), (err) => { if (err) return console.error(err); })
+  }
+}
 
 // ADMIN
 
@@ -173,10 +184,11 @@ server.route({
     clipCached.get(key, (err, value, cached) => {
       if(err) return console.error(err);
       if(cached !== null) return reply(value).header('Last-Modified', new Date(cached.stored).toUTCString());
+      if(page === 1) releaseCache(cacheExpires.keywordPageSize);
       var db = request.server.plugins['hapi-mongodb'].db;
       db.collection('clip').find({keywords: keyword, status: 1}).sort([['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
         if (err) return console.error(err);
-        clipCached.set(key, rs, cacheExpires.keyword, (err) => { if (err) return console.error(err); });
+        clipCached.set(key, rs, cacheExpires.keyword, (err) => { if (err) return console.error(err); cacheExpires.keywordPageSize.push(key); });
         reply(rs).header('Last-Modified', new Date().toUTCString());
       });
     });
@@ -195,10 +207,11 @@ server.route({
     clipCached.get(key, (err, value, cached) => {
       if(err) return console.error(err);
       if(cached !== null) return reply(value).header('Last-Modified', new Date(cached.stored).toUTCString());
+      if(page === 1) releaseCache(cacheExpires.newestPageSize);
       var db = request.server.plugins['hapi-mongodb'].db;
       db.collection('clip').find({status: 1}).sort([['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {        
         if (err) return console.error(err);
-        clipCached.set(key, rs, cacheExpires.newest, (err) => { if (err) return console.error(err); });
+        clipCached.set(key, rs, cacheExpires.newest, (err) => { if (err) return console.error(err); cacheExpires.newestPageSize.push(key); });
         reply(rs).header('Last-Modified', new Date().toUTCString());
       });
     });    
@@ -217,10 +230,11 @@ server.route({
     clipCached.get(key, (err, value, cached) => {
       if(err) return console.error(err);
       if(cached !== null) return reply(value).header('Last-Modified', new Date(cached.stored).toUTCString());
+      if(page === 1) releaseCache(cacheExpires.mostPageSize);
       var db = request.server.plugins['hapi-mongodb'].db;
       db.collection('clip').find({status: 1}).sort([['viewcount', -1], ['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
         if (err) return console.error(err);
-        clipCached.set(key, rs, cacheExpires.most, (err) => { if (err) return console.error(err); });
+        clipCached.set(key, rs, cacheExpires.most, (err) => { if (err) return console.error(err); cacheExpires.mostPageSize.push(key); });
         reply(rs).header('Last-Modified', new Date().toUTCString());
       });
     });
@@ -240,10 +254,11 @@ server.route({
     clipCached.get(key, (err, value, cached) => {
       if(err) return console.error(err);
       if(cached !== null) return reply(value).header('Last-Modified', new Date(cached.stored).toUTCString());
+      if(page === 1) releaseCache(cacheExpires.hotPageSize);
       var db = request.server.plugins['hapi-mongodb'].db;
       db.collection('clip').find({isSpecial: true, status: 1}).sort([['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
         if (err) return console.error(err);
-        clipCached.set(key, rs, cacheExpires.hot, (err) => { if (err) return console.error(err); });
+        clipCached.set(key, rs, cacheExpires.hot, (err) => { if (err) return console.error(err); cacheExpires.hotPageSize.push(key); });
         reply(rs).header('Last-Modified', new Date().toUTCString());
       });
     });
@@ -330,9 +345,9 @@ server.route({
         if(keywords.length > 0) {
           if(keywords.length > 1) where.keywords = {$in : keywords};
           else where.keywords = keywords[0];
-        }
-        where.updateat = {$lte: new Date(request.query.updateat)}
-      }
+        }        
+      }  
+      where.updateat = {$lte: new Date(request.query.updateat)}    
       var db = request.server.plugins['hapi-mongodb'].db;
       db.collection('clip').find(where).sort([['updateat', -1]]).skip((page-1)*rows).limit(rows).toArray((err, rs) => {
         if (err) return console.error(err);
