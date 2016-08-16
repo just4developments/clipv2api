@@ -1,5 +1,5 @@
 module.exports = [
-  { _id: "a1", uname: "18-plus",          name: "18+",               pattern: '18\\+' },
+  { _id: "a1", uname: "18-plus",          name: "18+",               pattern: '18\\+|canh nong|bar' },
   { _id: "a2", uname: "5s-online",        name: "5s Online",         pattern: '5s online' },
   { _id: "a3", uname: "am-thuc",          name: "Ẩm thực",           pattern: 'am thuc|che bien|mon an|bua an' },
   { _id: "a4", uname: "ao-thuat",         name: "Ảo thuật",          pattern: 'ao thuat|magic|ao thuat|takayama|magic|dynamo' },

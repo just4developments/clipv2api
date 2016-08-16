@@ -4,8 +4,8 @@ const googleapikey = 'AIzaSyDZGfuJuAR3Kr_hLNlW4r-UfKKyDqI29tQ';
 
 exports = module.exports = {
   googleapikey: googleapikey,
-  toUnsigned: (alias, isRemoveSpecial) => {
-    var str = alias;
+  toUnsigned(alias, isRemoveSpecial){
+    let str = alias;
     str= str.toLowerCase(); 
     str= str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g,"a"); 
     str= str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g,"e"); 
@@ -15,7 +15,7 @@ exports = module.exports = {
     str= str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g,"y"); 
     str= str.replace(/đ/g,"d"); 
     if(isRemoveSpecial) {
-      str= str.replace(/!|@|%|\^|\*|\(|\)|\+|\=|\<|\>|\?|\/|,|\.|\:|\;|\'| |\"|\&|\#|\[|\]|~|$|_|\|/g,"-");     
+      str= str.replace(/!|@|%|\\|\^|\*|\(|\)|\+|\=|\<|\>|\?|\/|,|\.|\:|\;|\'| |\"|\&|\#|\[|\]|~|$|_|\|/g,"-");
       str= str.replace(/-+-/g,"-");
       str= str.replace(/^\-+|\-+$/g,""); 
     }
@@ -39,7 +39,7 @@ exports = module.exports = {
     if(!obj.creator) obj.creator = "Admin";
     if(!obj.keywords) obj.keywords = [];
     if(!obj.viewcount) obj.viewcount = 0;
-    if(!obj.utitle) obj.utitle = exports.toUnsigned(obj.title);
+    if(!obj.utitle) obj.utitle = exports.toUnsigned(obj.title, true);
     obj.title0 = exports.toUnsigned(obj.title, true);
     for(var k of keywords){
      if(k.pattern && k.pattern.length > 0){

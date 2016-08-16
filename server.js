@@ -428,7 +428,7 @@ server.route({
       item.image = payload.image;
       item.site = 'http://localhost/';
       item.status = 0;
-      item.utitle = utils.toUnsigned(item.title + " <|> " + payload.rawtitle);
+      item.utitle = utils.toUnsigned(item.title + " <|> " + payload.rawtitle, true);
       if(payload.duration) item.duration = utils.getDuration(payload.duration); 
       item = utils.appendDefaultAttr(item, keywords);
       cb(item);
